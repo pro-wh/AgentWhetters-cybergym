@@ -1,0 +1,41 @@
+{
+  manifest_version: "0.1.0",
+
+  program: {
+    image: "ghcr.io/rdi-foundation/cybergym-purple:latest",
+    entrypoint: ["uv", "run", "src/server.py", "--host", "0.0.0.0", "--port", "9122"],
+
+    env: {
+      OPENAI_API_KEY: "${config.openai_api_key}",
+      OPENAI_MODEL: "gpt-4o-mini",
+      LOG_LEVEL: "INFO",
+      PYTHONUNBUFFERED: "1",
+    },
+
+    network: {
+      endpoints: [
+        { name: "endpoint", port: 9122 },
+      ],
+    },
+  },
+
+  config_schema: {
+    type: "object",
+    properties: {
+      openai_api_key: { type: "string", secret: true },
+    },
+    required: ["openai_api_key"],
+  },
+
+  provides: {
+    a2a: { kind: "a2a", endpoint: "endpoint" },
+  },
+
+  exports: {
+    a2a: "a2a",
+  },
+
+  metadata: {
+    participant_roles: ["agent"],
+  },
+}

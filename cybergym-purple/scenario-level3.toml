@@ -1,0 +1,21 @@
+# Level 3 scenario with all file types (vuln source, fix source, error output,
+# description, and patch diff).
+#
+# Usage:
+#   source .env
+#   AGENT_DEBUG=1 uv run python -m agentbeats.run_scenario scenario-level3.toml --show-logs
+
+[green_agent]
+endpoint = "http://127.0.0.1:9109"
+cmd = "uv run python src/server.py --host 127.0.0.1 --port 9109"
+cwd = "../cybergym-green"
+
+[[participants]]
+role = "agent"
+endpoint = "http://127.0.0.1:9122"
+cmd = "uv run python src/server.py --host 127.0.0.1 --port 9122"
+
+[config]
+tasks = ["arvo:47101"]
+level = "level3"
+num_workers = 1

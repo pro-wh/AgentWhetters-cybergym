@@ -1,0 +1,24 @@
+# Environment files
+.env
+*.env
+
+# Other projects (not part of this repo)
+b-w-i-m/
+swe-bench-pro/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+
+# Testing
+.pytest_cache/
+
+# Run logs
+tempo/
+logs/
+
+# Copilot tracking
+.copilot-tracking/

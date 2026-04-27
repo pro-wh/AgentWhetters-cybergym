@@ -1,0 +1,20 @@
+# Quick-test scenario: 1 task, agents started manually.
+#
+# Start agents first:
+#   Terminal 1 (green):  cd ../cybergym-green && uv run python src/server.py --host 127.0.0.1 --port 9109
+#   Terminal 2 (purple): source .env && uv run python src/server.py --host 127.0.0.1 --port 9122
+#
+# Then run:
+#   uv run python -m agentbeats.client_cli scenario.toml
+
+[green_agent]
+endpoint = "http://127.0.0.1:9109"
+
+[[participants]]
+role = "agent"
+endpoint = "http://127.0.0.1:9122"
+
+[config]
+tasks = ["arvo:47101"]
+level = "level1"
+num_workers = 1
