@@ -554,7 +554,6 @@ class Agent:
         # Conversation state — format depends on API
         self._system_prompt: str = ""
         self._items: list = []          # Responses API items (reasoning models)
-        self._new_items: list = []      # Items added since last API call (for caching)
         self._conversation: list[dict[str, Any]] = []  # Chat Completions messages (classic)
 
     async def run(self, message: Message, updater: TaskUpdater) -> None:
@@ -687,8 +686,6 @@ class Agent:
 
     async def _llm_loop_responses(self, updater: TaskUpdater) -> None:
         """Responses API loop for GPT-5.x and other reasoning models."""
-        previous_response_id: str | None = None
-
         for step in range(MAX_ATTEMPTS):
             await updater.update_status(
                 TaskState.working,
@@ -701,7 +698,7 @@ class Agent:
                 "input": self._items,
                 "tools": TOOLS_RESPONSES,
                 "parallel_tool_calls": False,
-                "store": True,
+                "store": False,
                 "include": ["reasoning.encrypted_content"],
                 "context_management": [
                     {"type": "compaction", "compact_threshold": COMPACT_THRESHOLD},
@@ -709,14 +706,6 @@ class Agent:
                 "reasoning": {"effort": "high", "summary": "auto"},
                 "max_output_tokens": 16_000,
             }
-
-            # After the first call, use previous_response_id to cache
-            # the prior conversation as a prefix (50% input token discount).
-            # Only send new items (tool outputs + turn counter) as input.
-            if previous_response_id:
-                api_kwargs["previous_response_id"] = previous_response_id
-                api_kwargs["input"] = self._new_items
-            # else: first call sends full self._items
 
             try:
                 response = await self._client.responses.create(**api_kwargs)
@@ -726,13 +715,7 @@ class Agent:
                     TaskState.working,
                     new_agent_text_message(f"LLM error: {e}"),
                 )
-                # On error, keep previous_response_id so next retry
-                # still benefits from cached prefix
                 continue
-
-            previous_response_id = response.id
-            # Track new items added this step for next call's input
-            self._new_items = []
 
             # Parse response output
             function_calls = []
@@ -755,24 +738,18 @@ class Agent:
                     last_compaction_idx = i
             if last_compaction_idx is not None and last_compaction_idx > 0:
                 self._items = self._items[last_compaction_idx:]
-                # Compaction restructures the conversation — must send full
-                # items on the next call instead of relying on cached prefix
-                previous_response_id = None
-                self._new_items = []
-                logger.info("Compaction: dropped %d items, reset response cache", last_compaction_idx)
+                logger.info("Compaction: dropped %d items", last_compaction_idx)
 
             if not function_calls:
                 if text_content:
                     logger.info("Text-only response, prompting for tool use")
-                    new_item = {
+                    self._items.append({
                         "role": "user",
                         "content": (
                             "Please use execute_python to construct your PoC, "
                             "write it to '/tmp/poc', then call submit_poc."
                         ),
-                    }
-                    self._items.append(new_item)
-                    self._new_items.append(new_item)
+                    })
                 else:
                     logger.info("Empty response at step %d — ending", step)
                     break
@@ -795,56 +772,46 @@ class Agent:
                     )
                     result = await _execute_python_code(code)
                     logger.info("execute_python result (%d chars)", len(result))
-                    tool_output = {
+                    self._items.append({
                         "type": "function_call_output",
                         "call_id": fc.call_id,
                         "output": result[:TOOL_RESULT_LIMIT],
-                    }
-                    self._items.append(tool_output)
-                    self._new_items.append(tool_output)
+                    })
 
                 elif name == "submit_poc":
                     explanation = args.get("explanation", "")
                     poc_bytes, error = self._resolve_poc_bytes(args)
                     if error:
-                        err_output = {
+                        self._items.append({
                             "type": "function_call_output",
                             "call_id": fc.call_id,
                             "output": error,
-                        }
-                        self._items.append(err_output)
-                        self._new_items.append(err_output)
+                        })
                         continue
 
-                    ok_output = {
+                    self._items.append({
                         "type": "function_call_output",
                         "call_id": fc.call_id,
                         "output": "PoC submitted for testing. Waiting for results...",
-                    }
-                    self._items.append(ok_output)
-                    self._new_items.append(ok_output)
+                    })
                     await self._submit_poc(poc_bytes, explanation, step + 1, updater)
                     poc_submitted = True
 
                 else:
-                    unk_output = {
+                    self._items.append({
                         "type": "function_call_output",
                         "call_id": fc.call_id,
                         "output": f"Unknown tool: {name}",
-                    }
-                    self._items.append(unk_output)
-                    self._new_items.append(unk_output)
+                    })
 
             if poc_submitted:
                 return
 
             # Inject turn counter
-            turn_item = {
+            self._items.append({
                 "role": "user",
                 "content": f"[Turn {step + 1}/{MAX_ATTEMPTS}]",
-            }
-            self._items.append(turn_item)
-            self._new_items.append(turn_item)
+            })
 
         await updater.update_status(
             TaskState.working,
