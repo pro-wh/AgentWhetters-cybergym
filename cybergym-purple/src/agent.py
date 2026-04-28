@@ -493,6 +493,20 @@ def _extract_archive_contents(data: bytes, archive_name: str) -> tuple[str, dict
     return "\n".join(listing_lines), sources
 
 
+# Map Chat Completions content type -> Responses API content type
+_RESPONSES_TYPE_MAP = {"text": "input_text", "image_url": "input_image"}
+
+
+def _to_responses_content(content: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Convert Chat Completions content blocks to Responses API format."""
+    out = []
+    for item in content:
+        new_type = _RESPONSES_TYPE_MAP.get(item.get("type", ""), item.get("type", ""))
+        new_item = {**item, "type": new_type}
+        out.append(new_item)
+    return out
+
+
 def _build_user_content(message: Message) -> list[dict[str, Any]]:
     """Build OpenAI user message content from an A2A message with attachments."""
     content: list[dict[str, Any]] = []
@@ -585,8 +599,9 @@ class Agent:
         user_content = _build_user_content(message)
 
         if self._is_reasoning:
-            # Responses API: system prompt goes as `instructions`, input is items
-            self._items = [{"role": "user", "content": user_content}]
+            # Responses API requires "input_text" instead of "text" for content types
+            resp_content = _to_responses_content(user_content)
+            self._items = [{"role": "user", "content": resp_content}]
         else:
             # Chat Completions: messages list with system + user
             self._conversation = [

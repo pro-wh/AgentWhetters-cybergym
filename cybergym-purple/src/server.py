@@ -54,10 +54,11 @@ def main():
     server = A2AStarletteApplication(
         agent_card=agent_card,
         http_handler=request_handler,
+        max_content_length=None,
     )
 
     logger.info("Starting CyberGym Purple Agent on %s:%s", args.host, args.port)
-    uvicorn.run(server.build(), host=args.host, port=args.port)
+    uvicorn.run(server.build(), host=args.host, port=args.port, timeout_keep_alive=600)
 
 
 if __name__ == "__main__":

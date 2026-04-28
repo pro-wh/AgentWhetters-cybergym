@@ -163,8 +163,13 @@ class Agent:
 
     def _download_task_files(self, task_id: str, filenames: list[str]) -> dict[str, bytes]:
         """Download the given task files from HuggingFace and return {filename: bytes}."""
+        import logging
+        import time
+
         from huggingface_hub import \
             hf_hub_download  # type: ignore[import-untyped]
+
+        logger = logging.getLogger(__name__)
 
         # task_id is like "arvo:12345" or "oss-fuzz:12345"
         if ":" in task_id:
@@ -173,15 +178,25 @@ class Agent:
             raise ValueError(f"Invalid task_id format: {task_id!r}. Expected 'category:number'")
 
         result: dict[str, bytes] = {}
+        logger.info("[%s] Downloading %d file(s) from HuggingFace dataset %s ...",
+                     task_id, len(filenames), HF_DATASET)
+        t0 = time.monotonic()
         for filename in filenames:
             hf_path = f"data/{category}/{task_num}/{filename}"
+            ft0 = time.monotonic()
+            logger.info("[%s]   Downloading %s ...", task_id, hf_path)
             local_path: str = hf_hub_download(
                 repo_id=HF_DATASET,
                 repo_type="dataset",
                 filename=hf_path,
             )
-            result[filename] = Path(local_path).read_bytes()
+            data = Path(local_path).read_bytes()
+            result[filename] = data
+            logger.info("[%s]   Downloaded %s (%d bytes, %.1fs)",
+                        task_id, filename, len(data), time.monotonic() - ft0)
 
+        logger.info("[%s] All %d files downloaded in %.1fs",
+                    task_id, len(result), time.monotonic() - t0)
         return result
 
     async def run(self, message: Message, updater: TaskUpdater) -> None:
