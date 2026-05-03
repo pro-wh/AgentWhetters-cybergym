@@ -15,6 +15,18 @@ endpoint = "http://127.0.0.1:9122"
 cmd = "uv run python src/server.py --host 127.0.0.1 --port 9122"
 
 [config]
-tasks = ["arvo:47101"]
+tasks = [
+    "arvo:47101",
+    "arvo:3938",
+    "arvo:1065",
+    "arvo:24993",
+    "arvo:10400",
+    "arvo:65530",
+    "arvo:3848",
+    "arvo:3862",
+    "arvo:65383",
+    "oss-fuzz:42535201",
+    "oss-fuzz:385167047"
+    ]
 level = "level1"
-num_workers = 1
+num_workers = 2
