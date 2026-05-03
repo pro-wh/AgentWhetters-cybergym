@@ -2,13 +2,14 @@
   manifest_version: "0.1.0",
 
   program: {
-    image: "ghcr.io/rdi-foundation/cybergym-purple:latest",
+    image: "ghcr.io/sharathbaddam/agentwhetters-cybergym-purple:latest",
     entrypoint: ["uv", "run", "src/server.py", "--host", "0.0.0.0", "--port", "9122"],
 
     env: {
       OPENAI_API_KEY: "${config.openai_api_key}",
-      OPENAI_MODEL: "",
-      LOG_LEVEL: "INFO",
+      AZURE_OPENAI_ENDPOINT: "${config.azure_openai_endpoint}",
+      AZURE_OPENAI_API_VERSION: "${config.azure_openai_api_version}",
+      AZURE_OPENAI_DEPLOYMENT: "${config.azure_openai_deployment}",
       PYTHONUNBUFFERED: "1",
     },
 
@@ -23,8 +24,12 @@
     type: "object",
     properties: {
       openai_api_key: { type: "string", secret: true },
+      azure_openai_endpoint: { type: "string" },
+      azure_openai_api_version: { type: "string" },
+      azure_openai_deployment: { type: "string" },
     },
     required: ["openai_api_key"],
+    additionalProperties: false,
   },
 
   provides: {
@@ -33,9 +38,5 @@
 
   exports: {
     a2a: "a2a",
-  },
-
-  metadata: {
-    participant_roles: ["agent"],
-  },
+  }
 }

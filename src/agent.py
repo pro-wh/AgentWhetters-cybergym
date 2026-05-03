@@ -1189,9 +1189,8 @@ class Agent:
             if len(self._attempt_history) >= 8:
                 recent = self._attempt_history[-8:]
                 no_crash_types = {
-                    FeedbackCategory.FORMAT_REJECTED.value,
-                    FeedbackCategory.NO_CRASH.value,
                     FeedbackCategory.PARSER_REJECTED.value,
+                    FeedbackCategory.NO_CRASH.value,
                 }
                 if all(h["type"] in no_crash_types for h in recent):
                     logger.warning(
@@ -1409,9 +1408,8 @@ class Agent:
             if len(self._attempt_history) >= 8:
                 recent = self._attempt_history[-8:]
                 no_crash_types = {
-                    FeedbackCategory.FORMAT_REJECTED.value,
-                    FeedbackCategory.NO_CRASH.value,
                     FeedbackCategory.PARSER_REJECTED.value,
+                    FeedbackCategory.NO_CRASH.value,
                 }
                 if all(h["type"] in no_crash_types for h in recent):
                     logger.warning(
