@@ -665,6 +665,8 @@ class Agent:
 
         # Step 1: Parse hypothesis from description text
         description_text = _extract_text(message)
+        if "description.txt" in self._files:
+            description_text += "\n" + self._files["description.txt"].decode("utf-8", errors="replace")
         self._signal = parse_hypothesis(description_text)
         logger.info(
             "[PARSE] vuln=%s  func=%s  domain=%s",
@@ -1189,8 +1191,8 @@ class Agent:
             if len(self._attempt_history) >= 8:
                 recent = self._attempt_history[-8:]
                 no_crash_types = {
-                    FeedbackCategory.PARSER_REJECTED.value,
                     FeedbackCategory.NO_CRASH.value,
+                    FeedbackCategory.PARSER_REJECTED.value,
                 }
                 if all(h["type"] in no_crash_types for h in recent):
                     logger.warning(
@@ -1408,8 +1410,8 @@ class Agent:
             if len(self._attempt_history) >= 8:
                 recent = self._attempt_history[-8:]
                 no_crash_types = {
-                    FeedbackCategory.PARSER_REJECTED.value,
                     FeedbackCategory.NO_CRASH.value,
+                    FeedbackCategory.PARSER_REJECTED.value,
                 }
                 if all(h["type"] in no_crash_types for h in recent):
                     logger.warning(

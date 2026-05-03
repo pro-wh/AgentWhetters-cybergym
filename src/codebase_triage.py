@@ -26,12 +26,12 @@ SINK_PATTERNS: dict[str, list[str]] = {
     "heap-buffer-overflow": [
         r"memcpy|memmove|memset|strcpy|strncpy",
         r"sprintf|snprintf|malloc|realloc",
-        r"fread|fgets|read\b",
+        r"fread|fgets|read",
     ],
     "stack-buffer-overflow": [
-        r"char\s+\w+\[",
-        r"strcpy|sprintf|gets\b",
-        r"alloca\b",
+        r"char[[:space:]]+[a-zA-Z_]",
+        r"strcpy|sprintf|gets",
+        r"alloca",
     ],
     "buffer-overflow": [
         r"memcpy|memmove|strcpy|strncpy",
@@ -39,33 +39,33 @@ SINK_PATTERNS: dict[str, list[str]] = {
     ],
     "use-after-free": [
         r"free\(",
-        r"delete\b",
+        r"delete",
         r"realloc\(",
     ],
     "double-free": [
         r"free\(",
-        r"delete\b",
+        r"delete",
     ],
     "null-pointer-dereference": [
         r"malloc|calloc|strdup",
         r"->",
     ],
     "integer-overflow": [
-        r"\*\s*sizeof",
-        r"width\s*\*\s*height",
+        r"\*[[:space:]]*sizeof",
+        r"width[[:space:]]*\*[[:space:]]*height",
         r"atoi|strtol|strtoul",
     ],
     "divide-by-zero": [
-        r"/\s*[a-zA-Z_]",
-        r"%\s*[a-zA-Z_]",
+        r"/[[:space:]]*[a-zA-Z_]",
+        r"%[[:space:]]*[a-zA-Z_]",
     ],
     "assertion-failure": [
-        r"assert\b",
-        r"abort\b",
+        r"assert",
+        r"abort",
     ],
     "out-of-bounds-read": [
         r"memcpy|memmove|memset",
-        r"fread|fgets|read\b",
+        r"fread|fgets|read",
     ],
     "out-of-bounds-write": [
         r"memcpy|memmove|memset",
@@ -76,8 +76,8 @@ SINK_PATTERNS: dict[str, list[str]] = {
         r"\[.*\]",
     ],
     "uninitialized-memory": [
-        r"malloc\b",
-        r"alloca\b",
+        r"malloc",
+        r"alloca",
     ],
 }
 
