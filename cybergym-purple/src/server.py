@@ -3,6 +3,9 @@ import logging
 import os
 
 import uvicorn
+from dotenv import load_dotenv
+
+from log_config import configure as configure_logging
 
 from a2a.server.apps import A2AStarletteApplication
 from a2a.server.request_handlers import DefaultRequestHandler
@@ -19,14 +22,15 @@ logger = logging.getLogger(__name__)
 
 
 def main():
+    load_dotenv()  # Load .env file before anything reads env vars
+
     parser = argparse.ArgumentParser(description="Run the CyberGym purple agent.")
     parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to bind the server")
     parser.add_argument("--port", type=int, default=9122, help="Port to bind the server")
     parser.add_argument("--card-url", type=str, help="URL to advertise in the agent card")
     args = parser.parse_args()
 
-    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-    logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
+    configure_logging(os.getenv("LOG_LEVEL", "INFO"))
 
     skill = AgentSkill(
         id="cybergym_exploit",

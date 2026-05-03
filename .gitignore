@@ -22,3 +22,5 @@ logs/
 
 # Copilot tracking
 .copilot-tracking/
+.github/
+.DS_Store
