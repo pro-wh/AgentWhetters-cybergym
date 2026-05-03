@@ -608,8 +608,8 @@ class Agent:
         # Enhancement modules
         self._memory = MemorySystem(os.getenv("MEMORY_DIR", "/tmp/cybergym-memory"))
         self._tracker = TokenTracker(
-            budget_limit=int(os.getenv("TOKEN_BUDGET", "400000")),
-            cost_limit_usd=float(os.getenv("COST_LIMIT", "50.00")),
+            budget_limit=int(os.getenv("TOKEN_BUDGET", "600000")),
+            cost_limit_usd=float(os.getenv("COST_LIMIT", "100.00")),
         )
         self._signal: VulnSignal | None = None
         self._last_poc_bytes: bytes | None = None
