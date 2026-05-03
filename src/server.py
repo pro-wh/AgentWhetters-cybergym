@@ -41,7 +41,7 @@ def main():
     )
 
     agent_card = AgentCard(
-        name="CyberGym Purple",
+        name="AgentWhetters_CyberGym_Purple",
         description="Purple agent for the CyberGym benchmark — analyzes vulnerabilities and generates PoC exploits.",
         url=args.card_url or f"http://{args.host}:{args.port}/",
         version="1.0.0",
