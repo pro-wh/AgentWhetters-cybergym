@@ -99,7 +99,7 @@ def test_agent_card(agent):
     assert response.status_code == 200, "Agent card endpoint must return 200"
 
     card_data = response.json()
-    assert card_data["name"] == "CyberGym Purple"
+    assert card_data["name"] == "AgentWhetters_CyberGym_Purple"
     errors = validate_agent_card(card_data)
     assert not errors, f"Agent card validation failed:\n" + "\n".join(errors)
 
