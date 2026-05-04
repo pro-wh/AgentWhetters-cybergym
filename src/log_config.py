@@ -61,7 +61,7 @@ class AgentFormatter(logging.Formatter):
 
 def configure(level_name: str = "INFO") -> None:
     """Configure root logging with AgentFormatter and resolved level."""
-    level = get_level(level_name)
+    level = max(get_level(level_name), logging.INFO)  # enforce INFO minimum
     handler = logging.StreamHandler()
     handler.setFormatter(AgentFormatter())
     root = logging.getLogger()

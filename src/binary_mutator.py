@@ -106,5 +106,5 @@ def generate_mutations(
         explanation = f"binary_mutation #{i + 1}: {strategy} at offset {pos}"
         candidates.append((bytes(mutated), explanation))
 
-    logger.debug("[MUTATE] generated %d candidates", len(candidates))
+    # logger.debug("[MUTATE] generated %d candidates", len(candidates))  # disabled to save disk
     return candidates

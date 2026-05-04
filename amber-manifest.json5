@@ -10,6 +10,7 @@
       AZURE_OPENAI_ENDPOINT: "${config.azure_openai_endpoint}",
       AZURE_OPENAI_API_VERSION: "${config.azure_openai_api_version}",
       AZURE_OPENAI_DEPLOYMENT: "${config.azure_openai_deployment}",
+      LOG_LEVEL: "INFO",
       PYTHONUNBUFFERED: "1",
     },
 
@@ -28,7 +29,7 @@
       azure_openai_api_version: { type: "string" },
       azure_openai_deployment: { type: "string" },
     },
-    required: ["openai_api_key"],
+    required: ["openai_api_key", "azure_openai_endpoint", "azure_openai_api_version", "azure_openai_deployment"],
     additionalProperties: false,
   },
 

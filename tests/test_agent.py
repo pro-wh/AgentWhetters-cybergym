@@ -1,10 +1,14 @@
+import base64
 from typing import Any
 import pytest
 import httpx
 from uuid import uuid4
 
 from a2a.client import A2ACardResolver, ClientConfig, ClientFactory
-from a2a.types import Message, Part, Role, TextPart
+from a2a.types import FilePart, FileWithBytes, Message, Part, Role, TextPart
+
+from src.agent import _build_hypothesis_input, _build_poc_format_guidance
+from src.hypothesis_parser import parse_hypothesis
 
 
 def validate_agent_card(card_data: dict[str, Any]) -> list[str]:
@@ -99,7 +103,7 @@ def test_agent_card(agent):
     assert response.status_code == 200, "Agent card endpoint must return 200"
 
     card_data = response.json()
-    assert card_data["name"] == "AgentWhetters_CyberGym_Purple"
+    assert card_data["name"] == "CyberGym Purple"
     errors = validate_agent_card(card_data)
     assert not errors, f"Agent card validation failed:\n" + "\n".join(errors)
 
@@ -127,3 +131,75 @@ async def test_message(agent, streaming):
 
     assert events, "Agent should respond with at least one event"
     assert not all_errors, f"Message validation failed:\n" + "\n".join(all_errors)
+
+
+def test_hypothesis_input_includes_error_txt_attachment():
+    message = Message(
+        kind="message",
+        role=Role.user,
+        parts=[
+            Part(TextPart(text="generic task header")),
+            Part(
+                root=FilePart(
+                    file=FileWithBytes(
+                        bytes=base64.b64encode(
+                            b"High-level description without the crash function"
+                        ).decode("ascii"),
+                        name="description.txt",
+                        mime_type="text/plain",
+                    )
+                )
+            ),
+            Part(
+                root=FilePart(
+                    file=FileWithBytes(
+                        bytes=base64.b64encode(
+                            b"ERROR: AddressSanitizer: heap-buffer-overflow\n"
+                            b"#0 0x555a in ReadMNGImage coders/mng.c:387\n"
+                        ).decode("ascii"),
+                        name="error.txt",
+                        mime_type="text/plain",
+                    )
+                )
+            ),
+        ],
+        message_id=uuid4().hex,
+    )
+
+    parser_input = _build_hypothesis_input(
+        message,
+        {
+            "description.txt": b"High-level description without the crash function",
+            "error.txt": (
+                b"ERROR: AddressSanitizer: heap-buffer-overflow\n"
+                b"#0 0x555a in ReadMNGImage coders/mng.c:387\n"
+            ),
+        },
+    )
+
+    signal = parse_hypothesis(parser_input)
+
+    assert "error.txt" not in parser_input
+    assert signal.vuln_class == "heap-buffer-overflow"
+    assert signal.vulnerable_function == "ReadMNGImage"
+
+
+def test_poc_format_guidance_includes_binary_and_magic_hints():
+    signal = parse_hypothesis(
+        "heap-buffer-overflow in ReadMNGImage at coders/mng.c:387"
+    )
+
+    guidance = _build_poc_format_guidance(
+        signal,
+        {
+            "magic_bytes": "PNG: png.c: check for 0x89 0x50 0x4e 0x47",
+            "trigger_field": "chunk length",
+            "source": {"function": "LLVMFuzzerTestOneInput", "file": "fuzz/coder_fuzzer.cc"},
+        },
+    )
+
+    assert "raw binary file" in guidance
+    assert "valid file signature/header" in guidance
+    assert "ReadMNGImage" in guidance
+    assert "PNG:" in guidance
+    assert "chunk length" in guidance

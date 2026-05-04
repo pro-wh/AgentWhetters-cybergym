@@ -477,6 +477,81 @@ def _extract_text(message: Message) -> str:
     return "\n".join(chunks)
 
 
+def _build_hypothesis_input(message: Message, files: dict[str, bytes]) -> str:
+    """Build parser input from message text plus key attached metadata files."""
+    chunks: list[str] = []
+
+    text = _extract_text(message)
+    if text:
+        chunks.append(text)
+
+    for filename in ("description.txt", "error.txt"):
+        data = files.get(filename)
+        if data is not None:
+            chunks.append(data.decode("utf-8", errors="replace"))
+
+    return "\n".join(chunks)
+
+
+def _build_poc_format_guidance(signal: VulnSignal, taint_path: dict | None = None) -> str:
+    """Build explicit per-task PoC format guidance for the model."""
+    taint_path = taint_path or {}
+
+    lines = ["=== Task-specific PoC hints ==="]
+
+    if signal.input_type == "binary_file":
+        lines.append(
+            "- Expected PoC form: raw binary file. Use execute_python, open '/tmp/poc' in 'wb' mode, and build real bytes rather than plain text."
+        )
+    elif signal.input_type == "text_file":
+        lines.append(
+            "- Expected PoC form: text-based input. Start from a minimal valid text document, then mutate the field that reaches the vulnerable path."
+        )
+    elif signal.input_type == "command_arg":
+        lines.append(
+            "- Expected PoC form: command-style / argument-like text. Keep it textual and minimize surrounding structure."
+        )
+
+    domain_hints = {
+        "image_parser": "Start with a valid file signature/header and minimal container structure before corrupting sizes, lengths, or nested chunks.",
+        "audio_video": "Use a real media/container header first; then target frame sizes, chunk lengths, stream metadata, or codec-specific tables.",
+        "compression": "Use real archive/compression framing and magic bytes before corrupting offsets, lengths, or table metadata.",
+        "xml_parser": "Keep the PoC textual and parser-shaped: use tags, attributes, entities, or truncated closing delimiters that still reach the parser.",
+        "pdf_parser": "Start with a minimal %PDF-style document and then corrupt xref/object metadata or declared lengths.",
+        "serialization": "Use valid top-level serialization framing first, then break tag numbers, lengths, nesting, or field sizes.",
+        "network_protocol": "Build a minimally valid packet/message header first, then corrupt length, offset, or type fields that guide parsing.",
+    }
+    domain_hint = domain_hints.get(signal.project_domain)
+    if domain_hint:
+        lines.append(f"- Domain hint: {domain_hint}")
+
+    if signal.vulnerable_function != "unknown":
+        lines.append(
+            f"- Target code path: drive execution into '{signal.vulnerable_function}' before trying to corrupt memory nearby."
+        )
+
+    if signal.file_hint:
+        lines.append(f"- File hint: the vulnerable code is associated with '{signal.file_hint}'.")
+
+    magic_bytes = taint_path.get("magic_bytes", "unknown")
+    if magic_bytes != "unknown":
+        lines.append(f"- Format clue from source: {magic_bytes}")
+
+    trigger_field = taint_path.get("trigger_field", "unknown")
+    if trigger_field != "unknown":
+        lines.append(f"- Trigger field to corrupt: {trigger_field}")
+
+    source = taint_path.get("source", {})
+    if source.get("function", "unknown") != "unknown":
+        lines.append(
+            f"- Harness entry point seen in source: {source.get('function')} ({source.get('file', 'unknown')})."
+        )
+
+    if len(lines) == 1:
+        return ""
+    return "\n".join(lines)
+
+
 def _extract_archive_contents(data: bytes, archive_name: str) -> tuple[str, dict[str, str]]:
     """Extract a file listing and key source file contents from a tar.gz archive.
 
@@ -664,9 +739,7 @@ class Agent:
         # === Pre-LLM Pipeline (0 tokens) ===
 
         # Step 1: Parse hypothesis from description text
-        description_text = _extract_text(message)
-        if "description.txt" in self._files:
-            description_text += "\n" + self._files["description.txt"].decode("utf-8", errors="replace")
+        description_text = _build_hypothesis_input(message, self._files)
         self._signal = parse_hypothesis(description_text)
         logger.info(
             "[PARSE] vuln=%s  func=%s  domain=%s",
@@ -730,20 +803,20 @@ class Agent:
                     # Triage: score files, extract only top 5
                     triage = CodebaseTriage(repo_path)
                     ranked_files = triage.score_and_rank(self._signal)
-                    logger.trace(  # type: ignore[attr-defined]
-                        "[TRIAGE] ranked %d files, top=%s",
-                        len(ranked_files),
-                        ranked_files[0] if ranked_files else "none",
-                    )
+                    # logger.trace(  # disabled to save disk
+                    #     "[TRIAGE] ranked %d files, top=%s",
+                    #     len(ranked_files),
+                    #     ranked_files[0] if ranked_files else "none",
+                    # )
 
                     # Extract taint path
                     extractor = TaintPathExtractor(repo_path)
                     taint_path = extractor.extract(self._signal, ranked_files)
-                    if taint_path.get("call_chain"):
-                        logger.trace(  # type: ignore[attr-defined]
-                            "[TAINT] %s",
-                            " -> ".join(taint_path["call_chain"]),
-                        )
+                    # if taint_path.get("call_chain"):
+                    #     logger.trace(  # disabled to save disk
+                    #         "[TAINT] %s",
+                    #         " -> ".join(taint_path["call_chain"]),
+                    #     )
 
                     # Get targeted code snippets (50-100 lines, not 60KB)
                     for filepath, score in ranked_files[:5]:
@@ -775,6 +848,10 @@ class Agent:
             )
         else:
             user_content = _build_user_content(message)
+
+        poc_format_guidance = _build_poc_format_guidance(self._signal, taint_path)
+        if poc_format_guidance:
+            user_content = [{"type": "text", "text": poc_format_guidance}] + user_content
 
         if self._is_reasoning:
             resp_content = _to_responses_content(user_content)
@@ -1183,9 +1260,9 @@ class Agent:
                     last_compaction_idx = i
             if last_compaction_idx is not None and last_compaction_idx > 0:
                 self._items = self._items[last_compaction_idx:]
-                logger.trace(  # type: ignore[attr-defined]
-                    "[LLM] compaction: dropped %d items", last_compaction_idx
-                )
+                # logger.trace(  # disabled to save disk
+                #     "[LLM] compaction: dropped %d items", last_compaction_idx
+                # )
 
             # Futility detection: 8 attempts with no crash signal → stop early
             if len(self._attempt_history) >= 8:
@@ -1211,7 +1288,7 @@ class Agent:
 
             if not function_calls:
                 if text_content:
-                    logger.trace("[LLM] text-only response — nudging for tool use")  # type: ignore[attr-defined]
+                    # logger.trace("[LLM] text-only response")  # disabled to save disk
                     self._items.append({
                         "role": "user",
                         "content": (
@@ -1220,7 +1297,7 @@ class Agent:
                         ),
                     })
                 else:
-                    logger.trace("[LLM] empty response at step %d — ending", step)  # type: ignore[attr-defined]
+                    # logger.trace("[LLM] empty response at step %d", step)  # disabled to save disk
                     break
                 continue
 
@@ -1240,7 +1317,7 @@ class Agent:
                         new_agent_text_message("Running Python code to construct PoC..."),
                     )
                     result = await _execute_python_code(code)
-                    logger.trace("[TOOL] execute_python output: %d chars", len(result))  # type: ignore[attr-defined]
+                    # logger.trace("[TOOL] execute_python output: %d chars", len(result))  # disabled to save disk
                     self._items.append({
                         "type": "function_call_output",
                         "call_id": fc.call_id,
@@ -1360,7 +1437,7 @@ class Agent:
                             new_agent_text_message("Running Python code to construct PoC..."),
                         )
                         result = await _execute_python_code(code)
-                        logger.trace("[TOOL] execute_python output: %d chars", len(result))  # type: ignore[attr-defined]
+                        # logger.trace("[TOOL] execute_python output: %d chars", len(result))  # disabled to save disk
                         self._conversation.append({
                             "role": "tool",
                             "tool_call_id": tool_call.id,
@@ -1397,7 +1474,7 @@ class Agent:
                     return
 
             elif assistant_msg.content:
-                logger.trace("[LLM] text-only response — nudging for tool use")  # type: ignore[attr-defined]
+                # logger.trace("[LLM] text-only response")  # disabled to save disk
                 self._conversation.append({
                     "role": "user",
                     "content": (
