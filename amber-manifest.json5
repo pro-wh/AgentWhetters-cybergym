@@ -12,6 +12,7 @@
       AZURE_OPENAI_DEPLOYMENT: "${config.azure_openai_deployment}",
       LOG_LEVEL: "INFO",
       PYTHONUNBUFFERED: "1",
+      HF_TOKEN: "${config.HF_TOKEN}"
     },
 
     network: {
@@ -28,6 +29,7 @@
       azure_openai_endpoint: { type: "string" },
       azure_openai_api_version: { type: "string" },
       azure_openai_deployment: { type: "string" },
+      HF_TOKEN: { type: "string", secret: true }
     },
     required: ["openai_api_key", "azure_openai_endpoint", "azure_openai_api_version", "azure_openai_deployment"],
     additionalProperties: false,

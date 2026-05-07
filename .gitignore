@@ -39,3 +39,4 @@ wheels/
 # Virtual environments
 .venv
 local-test/
+*.txt
