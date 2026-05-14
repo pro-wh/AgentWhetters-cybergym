@@ -1,5 +1,5 @@
 {
-  manifest_version: "0.1.0",
+  manifest_version: "0.2.0",
 
   program: {
     image: "ghcr.io/sharathbaddam/agentwhetters-cybergym-purple:latest",
@@ -7,12 +7,12 @@
 
     env: {
       OPENAI_API_KEY: "${config.openai_api_key}",
-      AZURE_OPENAI_ENDPOINT: "${config.azure_openai_endpoint}",
-      AZURE_OPENAI_API_VERSION: "${config.azure_openai_api_version}",
-      AZURE_OPENAI_DEPLOYMENT: "${config.azure_openai_deployment}",
+      AZURE_OPENAI_ENDPOINT: {when: "config.azure_openai_endpoint", value: "${config.azure_openai_endpoint}"},
+      AZURE_OPENAI_API_VERSION: {when: "config.azure_openai_api_version", value: "${config.azure_openai_api_version}"},
+      AZURE_OPENAI_DEPLOYMENT: {when: "config.azure_openai_deployment", value: "${config.azure_openai_deployment}"},
       LOG_LEVEL: "INFO",
       PYTHONUNBUFFERED: "1",
-      HF_TOKEN: "${config.hf_token}"
+      HF_TOKEN: {when: "config.hf_token", value: "${config.hf_token}"}
     },
 
     network: {
@@ -31,7 +31,7 @@
       azure_openai_deployment: { type: "string" },
       hf_token: { type: "string", secret: true }
     },
-    required: ["openai_api_key", "azure_openai_endpoint", "azure_openai_api_version", "azure_openai_deployment"],
+    required: ["openai_api_key"],
     additionalProperties: false,
   },
 
